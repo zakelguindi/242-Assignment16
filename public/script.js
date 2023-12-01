@@ -122,6 +122,7 @@ const editTeamForm = (team) => {
 
 const populateStarting5 = (team) => {
   const players = document.getElementById("player-boxes"); 
+  players.innerHTML = ""; 
 
   team.starting5.forEach((player) => {
     const input = document.createElement("input"); 
@@ -133,7 +134,7 @@ const populateStarting5 = (team) => {
 }
 
 const deleteTeam = async(team) => {
-  let response = await fetch(`/api/recipes/${team._id}`, {
+  let response = await fetch(`/api/nbateams/${team._id}`, {
     method: "DELETE", 
     headers: {
       "Content-Type": "application/json;charset=utf-8"
@@ -147,22 +148,24 @@ const deleteTeam = async(team) => {
 
   let result = await response.json(); 
   showTeams(); 
-  document.getElementById("team-details").innerHTML = ""; 
+  document.getElementById("teams-details").innerHTML = ""; 
 };
 
 const addEditTeam = async(e) => {
   e.preventDefault(); 
   const form = document.getElementById("add-edit-team-form");
   const formData = new FormData(form); 
-  formData.append("starting5", getStarting5); 
+  formData.append("starting5", getStarting5()); 
 
-  let repsonse; 
+  let response; 
   //adding new team 
   if(form._id.value == -1) {
     e.preventDefault(); 
     formData.delete("_id"); 
+
+    console.log(...formData); 
     
-    repsonse = await fetch("/api/nbateams", {
+    response = await fetch("/api/nbateams", {
       method: "POST", 
       body: formData
     });
@@ -171,7 +174,7 @@ const addEditTeam = async(e) => {
   //edit existing team
   else {
     console.log(...formData); 
-    response = await fetch(`/api/recipes/${form._id.value}`, {
+    response = await fetch(`/api/nbateams/${form._id.value}`, {
       method: "PUT",
       body: formData      
     });
@@ -195,11 +198,14 @@ const addEditTeam = async(e) => {
 };
 
 const getStarting5 = () => {
-  const input = document.querySelector("#player-boxes"); 
+  const inputs = document.querySelectorAll("#player-boxes input"); 
   let players = []; 
+  console.log(inputs); 
   inputs.forEach((player) => {
     players.push(player.value); 
   });
+
+  console.log(...players); 
 
   return players; 
 };

@@ -6,109 +6,40 @@ app.use(express.static("public"));
 app.use(express.json()); 
 const cors = require("cors"); 
 app.use(cors()); 
+const mongoose = require("mongoose"); 
 
 const upload = multer({ dest:__dirname + "/public/images"});
+
+mongoose
+  .connect(
+    "mongodb+srv://zakelguindi:Zakary13@cluster0.nj3vpi4.mongodb.net/"
+  )
+  .then(() => console.log("Connected to mongodb..."))
+  .catch((err) => console.error("could not connect ot mongodb...", err));
 
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html"); 
 });
 
-let nbateams = [
-  {
-  _id: 1,
-  name: "Philadelphia 76ers",
-  city: "Philadelphia, Pennsylvania",
-  arena: "Wells Fargo Center",
-  bestPlayer: "Joel Embiid",
-  titlesWon: 3,
-  starting5: [
-  "Tyrese Maxey",
-  "De'Anthony Melton",
-  "Kelly Oubre Jr.",
-  "Tobias Harris",
-  "Joel Embiid"
-  ]
-  },
-  {
-  _id: 2,
-  name: "Boston Celtics",
-  city: "Boston, Massachussetts",
-  arena: "TD Garden",
-  bestPlayer: "Jayson Tatum",
-  titlesWon: 17,
-  starting5: [
-  "Jrue Holiday",
-  "Derrick White",
-  "Jaylen Brown",
-  "Jayson Tatum",
-  "Kristaps Porzingis"
-  ]
-  },
-  {
-  _id: 3,
-  name: "Los Angeles Lakers",
-  city: "Los Angeles, California",
-  arena: "Crypto.com Arena",
-  bestPlayer: "LeBron James",
-  titlesWon: 17,
-  starting5: [
-  "D'Angelo Russell",
-  "Gabe Vincent",
-  "Austin Reaves",
-  "LeBron James",
-  "Anthony Davis"
-  ]
-  },
-  {
-  _id: 4,
-  name: "Miami Heat",
-  city: "Miami, Florida",
-  arena: "American Airlines Center",
-  bestPlayer: "Jimmy Butler",
-  titlesWon: 3,
-  starting5: [
-  "Kyle Lowry",
-  "Tyler Herro",
-  "Jimmy Butler",
-  "Haywood Highsmith",
-  "Bam Adebayo"
-  ]
-  },
-  {
-  _id: 5,
-  name: "Chicago Bulls",
-  city: "Chicago, Illinois",
-  arena: "United Center",
-  bestPlayer: "Zach LaVine",
-  titlesWon: 6,
-  starting5: [
-  "Coby White",
-  "Zach LaVine",
-  "DeMar DeRozan",
-  "Torrey Craig",
-  "Nikola Vucevic"
-  ]
-  },
-  {
-  _id: 6,
-  name: "Golden State Warriors",
-  city: "San Francisco, California",
-  arena: "Chase Center",
-  bestPlayer: "Steph Curry",
-  titlesWon: 4,
-  starting5: [
-  "Steph Curry",
-  "Klay Thompson",
-  "Andrew Wiggins",
-  "Draymond Green",
-  "Kevon Looney"
-  ]
-  }
-];
+const teamSchema = new mongoose.Schema({
+  name: String, 
+  city: String, 
+  arena: String, 
+  bestPlayer: String, 
+  titlesWon: Number, 
+  starting5: [String],
+});
+
+const Team = mongoose.model("Team", teamSchema); 
 
 app.get("/api/nbateams", (req, res) => {
-  res.send(nbateams);
+  getTeams(res); 
 });
+
+const getTeams = async(res) => {
+  const teams = await Team.find(); 
+  res.send(teams); 
+};
 
 app.post("/api/nbateams", upload.single("img"), (req, res) => {
   const result = validateTeam(req.body);
@@ -117,28 +48,61 @@ app.post("/api/nbateams", upload.single("img"), (req, res) => {
       res.status(400).send(result.error.details[0].message);
       return;
   }
+
+  const team = new Team ({
+    name: req.body.name,
+    city: req.body.city, 
+    arena: req.body.arena, 
+    bestPlayer: req.body.bestPlayer, 
+    titlesWon: req.body.titlesWon, 
+    starting5: req.body.starting5.split(",")
+  }); 
+
+  createTeam(team, res); 
 });
 
+const createTeam = async(team, res) => {
+  const result = await team.save(); 
+  res.send(team); 
+};
+
 app.put("/api/nbateams/:id", upload.single("img"), (req, res) => {
-  const id = parseInt(req.params.id); 
-  const team = nbateams.find((r) => r._id === id);
   const result = validateTeam(req.body); 
 
   if (result.error) {
     res.status(400).send(result.error.details[0].message);
     return;
   }
-  
-  team.name = req.body.name; 
-  team.city = req.body.city; 
-  team.arena = req.body.arena; 
-  team.bestPlayer = req.body.bestPlayer; 
-  team.titlesWon = req.body.titlesWon; 
 
-  team.starting5 = req.body.starting5.split(","); 
-
-  res.send(team); 
+  updateTeam(req, res);
 });
+
+const updateTeam = async (req, res) => {
+
+  let fieldsToUpdate = {
+    name: req.body.name,
+    city: req.body.city, 
+    arena: req.body.arena, 
+    bestPlayer: req.body.bestPlayer, 
+    titlesWon: req.body.titlesWon, 
+  
+    starting5: req.body.starting5.split(","), 
+  };
+
+  const result = await Team.updateOne({ _id: req.params.id }, fieldsToUpdate); 
+  const team = await Team.findById(req.params.id); 
+  res.send(team); 
+};
+
+app.delete("/api/nbateams/:id", upload.single("img"), (req, res) => {
+  removeTeam(res, req.params.id); 
+});
+
+const removeTeam = async(res, id) => {
+  const team = await Team.findByIdAndDelete(id); 
+  res.send(team); 
+};
+
 
 const validateTeam = (team) => {
   const schema = Joi.object({
@@ -153,20 +117,6 @@ const validateTeam = (team) => {
 
   return schema.validate(team); 
 };
-
-app.delete("/api/recipes/:id", upload.single("img"), (req, res) => {
-  const id = parseInt(req.params.id); 
-  const team = nbateams.find((r) => r._id === id); 
-
-  if (!team) {
-    res.status(404).send("The recipe was not found");
-    return;
-  }
-
-  const index = nbateams.indexOf(team); 
-  nbateams.splice(index, 1);
-  res.send(team);  
-});
 
 app.listen(3004, () => {
   console.log("Listening...");
